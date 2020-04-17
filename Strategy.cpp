@@ -10,7 +10,7 @@ using namespace std;
 
 int cnt = 0; // counter for nodes
 clock_t startTime = 0;
-const double LIMIT = 2.5;
+const double LIMIT = 2.0;
 void my_assert(bool ok, const char* prompt);
 UCT* UCT::node;
 int UCT::N;
@@ -50,7 +50,6 @@ extern "C" Point *getPoint(const int M, const int N, const int *top, const int *
 		不要更改这段代码
 	*/
 
-	int x = -1, y = -1; //最终将你的落子点存到x,y中
 	int **board = new int *[M];
 	for (int i = 0; i < M; i++)
 	{
@@ -69,8 +68,9 @@ extern "C" Point *getPoint(const int M, const int N, const int *top, const int *
 		该部分对参数使用没有限制，为了方便实现，你可以定义自己新的类、.h文件、.cpp文件
 	*/
 	//Add your own code below
+	int x = -1, y = -1; //最终将你的落子点存到x,y中
 	
-     //a naive example
+    //  //a naive example
 	// for (int i = N-1; i >= 0; i--) {
 	// 	if (top[i] > 0) {
 	// 		x = top[i] - 1;
@@ -88,22 +88,35 @@ extern "C" Point *getPoint(const int M, const int N, const int *top, const int *
 	for (int i = 0; i < N; i++) {
 		my_top[i] = top[i];
 	}
+	// UCT_Search(M, N, board, _board, my_top, top);
 	y = UCT_Search(M, N, board, _board, my_top, top);
-	x = top[y];
+	x = top[y] - 1;
+	fprintf(stderr, "want %d %d\n", x, y);
 	delete []UCT::node;
 	return new Point(x, y);
 }
 
 int UCT_Search(const int M, const int N, int** board, const int* _board, int* top, const int* _top) {
 	UCT* root = &UCT::node[UCT::cnt++];
+	// int cntt = 0;
 	while (UCT::cnt < UCT::MAX_NODES && ((double)(clock() - startTime) / CLOCKS_PER_SEC) < LIMIT) {
+		// cntt ++;
+		// printf("entering tree policy\n");
 		UCT* NowNode = TreePolicy(root, M, N, board, top);
-
+		// printf("out of tree policy\n");
 		// TODO CHECK if I win, profit == -1, if I lose, profit == -1;
+		// cout << NowNode << endl;
+		// printf("id == %d\n", NowNode->getID());
+		// printf("in default policy\n");
+		
 		int profit = DefaultPolicy(M, N, board, top,(int)(NowNode->getID()));
+		// printf("out of default policy\n");
+		// printf("in back up\n");
 		BackUp(NowNode, profit);
+		// printf("out of back up\n");
 		ResetBoard(M, N, board, _board, top, _top);
 	}
+	
 	return root->BestChildAction();
 }
 
@@ -122,9 +135,17 @@ void ResetBoard(const int M, const int N, int** board, const int* _board, int* t
 UCT* TreePolicy(UCT* root, const int M, const int N, int** board, int* top) {
 	UCT* now = root;
 	while (!now->Finished()) {
-		if (now->Scalable()) {
-			return now->Expand(M, N, board, top);
+		// printf("here\n");
+		if (now->Scalable(top)) {
+			// printf("in expand!!!!!!!!!!!\n");
+			UCT* ret = now->Expand(M, N, board, top);
+			// cout << ret ;
+			// printf(" aoh\n");
+			// printf("id == %d\n", ret->getID());
+			// printf("out of expand!!\n");
+			return ret;
 		} else {
+			// printf("selecting best\n");
 			now = now->BestChild(M, N, board, top);
 		}
 	}
@@ -137,7 +158,12 @@ void BackUp(UCT* now, int profit) {
 		if (now->isRoot()) {
 			break;
 		}
+		now = &UCT::node[now->getFather()];
 	}
+	// while (!now->isRoot()) {
+	// 	now->modify(profit);
+	// 	now = &UCT::node[now->getFather()];
+	// }
 }
 
 void shuffleArr(int* array, int n) {
@@ -166,30 +192,47 @@ int RandomAction(int* top, int N, int* tmp) {
 	return tmp[0];
 }
 
-
+void PutChess(int line, const int M, const int N, int** board, int* top, int id) {
+    int chess = -1;
+    if (id == 1) {  // me
+        chess = 2;
+    } else {
+         chess = 1;
+    }
+    top[line] -= 1;
+    board[top[line]][line] = chess;
+}
 
 int DefaultPolicy(const int M, const int N, int** board, int* top, int id) {
-	int winnerID = 0;
-	int lastX = -1, lastY = -1;
+	// int winnerID = 0;
+	// int lastX = -1, lastY = -1;
+	// printf("entering default\n");
 	int* tmp = new int[N];
-	for (;winnerID == 0; winnerID = winOrNot(M, N, board, lastX, lastY)) {
+	int profit = 0;
+	while (true) {
+		// printf("getting radom act\n");
 		int randomChoice = RandomAction(top, N, tmp);
+		// printf("get complete\n");
 		if (randomChoice == -1) {
-			return 0;
+			profit = 0;  // tie
+			break;
 		}
-		UCT::node[0].PlaceChess(randomChoice, M, N, board, top);
+		// printf("want to put on %d %d\n", top[randomChoice] - 1, randomChoice);
+		PutChess(randomChoice, M, N, board, top, id);
+		if (nowWin(M, N, board, top[randomChoice], randomChoice)) {
+			if (id == 1) {
+				profit = 1;
+				break;
+			} else {
+				profit = -1;
+				break;
+			}
+		}
 		id = 1 - id;
 	}
-	if (winnerID == 2) {  // I win
-		return 1;
-	}
-	if (winnerID == 1) {  // I lose
-		return -1;
-	}
 
-	my_assert(winnerID == -1, "Tie need winner id == -1");
 	delete[]tmp;
-	return 0;  // tie, need an assert?
+	return profit;  // tie, need an assert?
 }
 
 /*

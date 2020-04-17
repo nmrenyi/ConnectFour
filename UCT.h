@@ -21,10 +21,11 @@ public:
 
     UCT();
     ~UCT();
-    bool Scalable();
+    bool Scalable(int* top);
     bool Finished();
     bool getID();
     bool isRoot();
+    int getFather();
     void modify(int);
     UCT* BestChild(const int M, const int N, int** board, int* top);
     double getUCTValue();
@@ -32,5 +33,7 @@ public:
     void PlaceChess(int line, const int M, const int N, int** board, int* top);
     UCT* Expand(const int M, const int N, int** board, int* top);
 };
+
+int nowWin(int M, int N, int** board, int x, int y);
 
 #endif
