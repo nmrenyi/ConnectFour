@@ -1,25 +1,36 @@
 // Class definition for UCT
-
+#ifndef  __UCT_H_
+#define   __UCT_H_
 class UCT {
-    bool scalable = false;
-    bool id = 0;  //  my id == 1, component id == 0
+    bool scalable = true;
+    bool id = 1;  //  my id == 1, component id == 0
     bool terminal = false;
+    int index = 0;
     int father = -1;
-    int* child;
+    int* child;  // is new child necessary for all nodes? if not, you should change the way to access child.
     int win = 0;
     int total = 0;
-    static const double coefficient = 1.0;
-    void shuffule(int*, int);
-    void PlaceChess(int line, const int M, const int N, int** board, int* top);
+    void shuffle(int*, int);
+    double getWinRatio();
 public:
     static const int MAX_NODES = 10000000;
     static UCT* node;
     static int N;
+    static int cnt;
+    static double coefficient;
+
     UCT();
     ~UCT();
     bool Scalable();
     bool Finished();
+    bool getID();
+    bool isRoot();
+    void modify(int);
     UCT* BestChild(const int M, const int N, int** board, int* top);
     double getUCTValue();
+    int BestChildAction();
+    void PlaceChess(int line, const int M, const int N, int** board, int* top);
     UCT* Expand(const int M, const int N, int** board, int* top);
 };
+
+#endif

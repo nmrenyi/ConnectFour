@@ -30,15 +30,17 @@ void shuffle(int *array, size_t n)
     }
 }
 int main() {
-    int a[10] = {0,1,2,3,4,5,6,7,8,9};
-    for (int i = 0; i < 10; i++) {
-        printf("%d ", a[i]);
-    }
-    printf("\n");
-    shuffle(a, 5);
-    for (int i = 0; i < 10; i++) {
-        printf("%d ", a[i]);
-    }
-    printf("\n");
+    // int a[10] = {0,1,2,3,4,5,6,7,8,9};
+    // for (int i = 0; i < 10; i++) {
+    //     printf("%d ", a[i]);
+    // }
+    // printf("\n");
+    // shuffle(a, 5);
+    // for (int i = 0; i < 10; i++) {
+    //     printf("%d ", a[i]);
+    // }
+    // printf("\n");
+    bool ok = 0;
+    printf("%d", (1 - (int)(ok)));
     return 0;
 }

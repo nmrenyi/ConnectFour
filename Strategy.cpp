@@ -4,6 +4,7 @@
 #include <time.h>
 #include "UCT.h"
 #include "Strategy.h"
+#include "UCT.cpp"
 using namespace std;
 
 
@@ -11,8 +12,15 @@ int cnt = 0; // counter for nodes
 clock_t startTime = 0;
 const double LIMIT = 2.5;
 void my_assert(bool ok, const char* prompt);
-static UCT* UCT::node;
-static int UCT::N;
+UCT* UCT::node;
+int UCT::N;
+int UCT::cnt;
+double UCT::coefficient;
+void BackUp(UCT* now, int profit);
+int DefaultPolicy(const int M, const int N, int** board, int* top, int id);
+void ResetBoard(const int M, const int N, int** board, const int* _board, int* top, const int* _top);
+UCT* TreePolicy(UCT* root, const int M, const int N, int** board, int* top);
+int UCT_Search(const int M, const int N, int** board, const int* _board, int* top, const int* _top);
 /*
 	策略函数接口,该函数被对抗平台调用,每次传入当前状态,要求输出你的落子点,该落子点必须是一个符合游戏规则的落子点,不然对抗平台会直接认为你的程序有误
 	
@@ -73,6 +81,8 @@ extern "C" Point *getPoint(const int M, const int N, const int *top, const int *
     
 	// TODO constructor for UCT, needs N
 	UCT::N = N;
+	UCT::coefficient = 1.0;
+	UCT::cnt = 0;
 	UCT::node = new UCT[UCT::MAX_NODES];
 	int* my_top = new int[N];
 	for (int i = 0; i < N; i++) {
@@ -85,17 +95,19 @@ extern "C" Point *getPoint(const int M, const int N, const int *top, const int *
 }
 
 int UCT_Search(const int M, const int N, int** board, const int* _board, int* top, const int* _top) {
-	UCT* root = &node[cnt++];
-	while (cnt < UCT::MAX_NODES && (double)(clock() - start) / CLOCKS_PER_SEC < LIMIT) {
+	UCT* root = &UCT::node[UCT::cnt++];
+	while (UCT::cnt < UCT::MAX_NODES && ((double)(clock() - startTime) / CLOCKS_PER_SEC) < LIMIT) {
 		UCT* NowNode = TreePolicy(root, M, N, board, top);
-		int profit = DefaultPolicy(M, N, board, top);
+
+		// TODO CHECK if I win, profit == -1, if I lose, profit == -1;
+		int profit = DefaultPolicy(M, N, board, top,(int)(NowNode->getID()));
 		BackUp(NowNode, profit);
 		ResetBoard(M, N, board, _board, top, _top);
 	}
-	return BestChildAction(root);
+	return root->BestChildAction();
 }
 
-void ResetBoard(const int M, const int N, int** board, int* _board, int* top, const int* _top) {
+void ResetBoard(const int M, const int N, int** board, const int* _board, int* top, const int* _top) {
 	for (int i = 0; i < M; i++) {
 		for (int j = 0; j < N; j++) {
 			board[i][j] = _board[i * N + j];
@@ -110,7 +122,7 @@ void ResetBoard(const int M, const int N, int** board, int* _board, int* top, co
 UCT* TreePolicy(UCT* root, const int M, const int N, int** board, int* top) {
 	UCT* now = root;
 	while (!now->Finished()) {
-		if (now->Scalable) {
+		if (now->Scalable()) {
 			return now->Expand(M, N, board, top);
 		} else {
 			now = now->BestChild(M, N, board, top);
@@ -128,12 +140,45 @@ void BackUp(UCT* now, int profit) {
 	}
 }
 
-int DefaultPolicy(const int M, const int N, int** board, int* top) {
+void shuffleArr(int* array, int n) {
+    if (n > 1) {
+        srand(unsigned(time(NULL)));
+        for (int i = 0; i < n - 1; i++) {
+          int j = i + rand() / (RAND_MAX / (n - i) + 1);
+          int t = array[j];
+          array[j] = array[i];
+          array[i] = t;
+        }
+    }
+}
+
+int RandomAction(int* top, int N, int* tmp) {
+	int availableAction = 0;
+	for (int i = 0; i < N; i++) {
+		if (top[i] != 0) {
+			tmp[availableAction++] = i;
+		}
+	}
+	if (availableAction == 0) {
+		return -1;
+	}
+	shuffleArr(tmp, availableAction);
+	return tmp[0];
+}
+
+
+
+int DefaultPolicy(const int M, const int N, int** board, int* top, int id) {
 	int winnerID = 0;
 	int lastX = -1, lastY = -1;
+	int* tmp = new int[N];
 	for (;winnerID == 0; winnerID = winOrNot(M, N, board, lastX, lastY)) {
-		int randomChoice = RandomAction(top);
-		SelectChoice(randomChoice, board, top);
+		int randomChoice = RandomAction(top, N, tmp);
+		if (randomChoice == -1) {
+			return 0;
+		}
+		UCT::node[0].PlaceChess(randomChoice, M, N, board, top);
+		id = 1 - id;
 	}
 	if (winnerID == 2) {  // I win
 		return 1;
@@ -143,6 +188,7 @@ int DefaultPolicy(const int M, const int N, int** board, int* top) {
 	}
 
 	my_assert(winnerID == -1, "Tie need winner id == -1");
+	delete[]tmp;
 	return 0;  // tie, need an assert?
 }
 
